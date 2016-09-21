@@ -59,7 +59,7 @@ class NUTTAB:
 
 
 if __name__ == '__main__':
-    dbname = "NUTTAB"
+    dbname = "NUTTAB.db"
     nutrition_file = os.path.join(
     os.getcwd(), '2a. NUTTAB 2010 - Nutrient File - all foods per 100 g.txt')
     nuttab = NUTTAB(dbname)
