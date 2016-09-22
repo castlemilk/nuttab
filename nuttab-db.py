@@ -1,12 +1,12 @@
 import os
-# from xlrd import open_workbook
+from xlrd import open_workbook
 # import json
 from tqdm import tqdm
 from nuttab_to_norm import mapping
 import sqlite3
 # TODO:
-# 1. create field mapping for NUTTTAB to USDA DB schemes
-# 2. parse NUTTAB Data and formatting into JSON for upload
+# 1. DONE create field mapping for NUTTTAB to USDA DB schemes
+# 2. DOING parse NUTTAB Data and formatting into JSON for upload
 # 3. upload with specifi metadata detailing the source (NATTAB) and re-do
 #    the USDA data with the same meta data about its source etc.
 
@@ -37,11 +37,11 @@ class NUTTAB:
         self.cursor = self.database.cursor()
         self.cursor.executescript(create_table_stmt["nutrition"])
 
-    def build_table(self, filename, tablename):
+    def build_table_csv(self, filename, tablename):
         '''
         Build table from csv file
         filename - filename in CSV format
-        cursor - database cursor
+        tablename - name for the table created in DB
         '''
         with open(filename, 'rU') as f:
             next(f)
@@ -52,6 +52,15 @@ class NUTTAB:
                 # print fields
                 self.insert_row(tablename, fields)
         self.database.commit()
+    def build_table_xls(self, filename, table):
+        '''
+        Build table from xls file
+        filename - filename in xls/xlsx format
+        tablename - name for the table created in DB
+        '''
+        wb = open_workbook(filename)
+        ws = wb.sheet_by_index(1)
+        print ws
     def insert_row(self, tablename, fields):
         """Inserts a row of data into a specific table based on passed datatype"""
         insert_params = "(" + ",".join(['?' for x in fields]) + ")"
@@ -62,5 +71,7 @@ if __name__ == '__main__':
     dbname = "NUTTAB.db"
     nutrition_file = os.path.join(
     os.getcwd(), '2a. NUTTAB 2010 - Nutrient File - all foods per 100 g.txt')
+    amino_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Amino Acid File.xls')
     nuttab = NUTTAB(dbname)
-    nuttab.build_table(nutrition_file, "nutrition")
+    #nuttab.build_table_csv(nutrition_file, "nutrition")
+    nuttab.build_table_xls(amino_file, "amino_acids")
