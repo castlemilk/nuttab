@@ -53,7 +53,7 @@ class NUTTAB:
                 self.insert_row(tablename, fields)
         self.database.commit()
 
-    def build_table_xl_amino_acid(self, filename, schema, tablename):
+    def build_table_xls_amino_acid(self, filename, tablename):
         '''
         Build table from xls file
         specifically the amin acid file and the x number of columns per row
@@ -62,12 +62,25 @@ class NUTTAB:
         the excel spread sheet
         tablename - name for the table created in DB
         '''
+        amino_column_schema = ['sort', 'food_id', 'food_name',
+                         'ALAN', 'ARG', 'ASP', 'CYSN',
+                         'GLU', 'GLY', 'HIS', 'ILEU' , 'LEU',
+                         'LYS', 'MET', 'PHE', 'PRO', 'SER',
+                         'THR', 'TYR', 'TRYP', 'VAL',
+                         ]
+        header_row = 4  # where the titles are etc
         wb = open_workbook(filename)
         ws = wb.sheet_by_index(0)
-        for rowx in range(ws.nrows):
-            for colx in range(ws.ncols):
+        for rowx in range(header_row, ws.nrows):
+            row_dict = {}
+            row_dict['food_id'] = ws.cell(rowx,1).value
+            row_dict['food_name'] = ws.cell(rowx,2).value
+            for colx in range(3, ws.ncols):
+                row_dict[amino_column_schema[colx]] = ws.cell(rowx, colx).value
 
-       self.database.commit()
+            print row_dict
+            break
+       #self.database.commit()
 
     def build_table_xls(self, filename, table):
         '''
@@ -93,10 +106,4 @@ if __name__ == '__main__':
     amino_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Amino Acid File.xls')
     nuttab = NUTTAB(dbname)
     #nuttab.build_table_csv(nutrition_file, "nutrition")
-    amino_column_schema = ['sort', 'food_id', 'food_name',
-                         'ALAN', 'ARG', 'ASP', 'CYSN',
-                         'GLU', 'GLY', 'HIS', 'ILEU' , 'LEU',
-                         'LYS', 'MET', 'PHE', 'PRO', 'SER',
-                         'THR', 'TYR', 'TRYP', 'VAL',
-                         ]
-    nuttab.build_table_xls(amino_file, amino_column_schema, "amino_acids")
+    nuttab.build_table_xls_amino_acid(amino_file, "amino_acids")
