@@ -36,6 +36,7 @@ class NUTTAB:
 
         self.cursor = self.database.cursor()
         self.cursor.executescript(create_table_stmt["nutrition"])
+        self.cursor.executescript(create_table_stmt["amino_acid"])
 
     def build_table_csv(self, filename, tablename):
         '''
@@ -71,16 +72,26 @@ class NUTTAB:
         header_row = 4  # where the titles are etc
         wb = open_workbook(filename)
         ws = wb.sheet_by_index(0)
+        units = 'mg/g'
+        # parse into dict
         for rowx in range(header_row, ws.nrows):
             row_dict = {}
             row_dict['food_id'] = ws.cell(rowx,1).value
             row_dict['food_name'] = ws.cell(rowx,2).value
+            row_dict['amino_acids'] = {}
             for colx in range(3, ws.ncols):
-                row_dict[amino_column_schema[colx]] = ws.cell(rowx, colx).value
+                row_dict['amino_acids'][amino_column_schema[colx]] = {
+                    'descr':ws.cell(header_row-1, colx).value.rstrip('\n (mg/g N)'),
+                    'value':ws.cell(rowx, colx).value
+                }
 
             print row_dict
             break
-       #self.database.commit()
+        # store into DB
+        for amino_acid, info in row_dict['amino_acids'].iteritems():
+            db_row = [row_dict['food_id'], amino_acid, info['descr'], units, info['value']]
+            self.insert_row(tablename, db_row)
+        self.database.commit()
 
     def build_table_xls(self, filename, table):
         '''
@@ -106,4 +117,4 @@ if __name__ == '__main__':
     amino_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Amino Acid File.xls')
     nuttab = NUTTAB(dbname)
     #nuttab.build_table_csv(nutrition_file, "nutrition")
-    nuttab.build_table_xls_amino_acid(amino_file, "amino_acids")
+    nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
