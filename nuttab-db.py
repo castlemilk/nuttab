@@ -30,6 +30,9 @@ class NUTTAB:
         create_table_stmt["amino_acid_meta"] = '''DROP TABLE IF EXISTS amino_acid_meta; CREATE TABLE amino_acid_meta
                                 (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
                                 CREATE INDEX amino_acid_meta_food_ID_idx on amino_acid_meta (food_ID)'''
+        create_table_stmt["vit_d"] = '''DROP TABLE IF EXISTS vit_d; CREATE TABLE vit_d
+                                (food_ID text, nut_ID, descr, scale, value);
+                                CREATE INDEX vit_d_food_ID_idx ON vit_d (food_ID)'''
         create_table_stmt["indigenous_food"] = '''DROP TABLE IF EXISTS indigenous_food; CREATE TABLE indigenous_food
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX indigenous_food_food_ID_idx on indigenous_food (food_ID)'''
@@ -38,6 +41,7 @@ class NUTTAB:
         self.cursor.executescript(create_table_stmt["nutrition"])
         self.cursor.executescript(create_table_stmt["amino_acid"])
         self.cursor.executescript(create_table_stmt["amino_acid_meta"])
+        self.cursor.executescript(create_table_stmt["vit_d"])
         self.database.commit()
 
     def build_table_csv(self, filename, tablename):
@@ -55,7 +59,6 @@ class NUTTAB:
                 # print fields
                 self.insert_row(tablename, fields)
         self.database.commit()
-
     def build_table_xls_amino_acid(self, filename, tablename):
         '''
         Build table from xls file
@@ -122,6 +125,32 @@ class NUTTAB:
             self.insert_row("amino_acid_meta", db_row)
 
         self.database.commit()
+    def build_table_xls_vitd(self, filename, table):
+        '''
+        Build table for vitamin d file and all the detailed values availble
+        filename - name of excel sheet containing amino acid info
+        tablename - name of table containing the organised meta data
+        '''
+        vit_d_column_schema = ['food_id','food_nae', 'CHOC', 'ERGCAL', 'CHOCALOH',
+                               'ERGCALOH', 'VITDEQ', 'VITEQNF']
+        units = 'ug/100g'
+        wb = open_workbook(filename)
+        ws = wb.sheet_by_index(0)
+        header_row = 5
+        for rowx in range(header_row, ws.nrows):
+            row_dict = {}
+            row_dict['food_id'] = ws.cell(rowx,1).value
+            row_dict['food_name'] = ws.cell(rowx, 2).value
+            row_dict['nutrients'] = {}
+            for colx in range (3, ws.ncols):
+                row_dict['nutrients'][vit_d_column_schema[colx]] = {
+                    'descr': ws.cell(header_row-1, colx).value.split('\n ')[0],
+                    'value': ws.cell(rowx, colx).value,
+                    'scale': units,
+                }
+
+            print row_dict
+            break
     def build_table_xls(self, filename, table):
         '''
         Build table from xls file
@@ -144,7 +173,9 @@ if __name__ == '__main__':
     nutrition_file = os.path.join(
     os.getcwd(), '2a. NUTTAB 2010 - Nutrient File - all foods per 100 g.txt')
     amino_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Amino Acid File.xls')
+    vitd_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Vitamin D File fixes.xls')
     nuttab = NUTTAB(dbname)
     #nuttab.build_table_csv(nutrition_file, "nutrition")
     nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
     nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
+    nuttab.build_table_xls_vitd(vitd_file, "vit_d")
