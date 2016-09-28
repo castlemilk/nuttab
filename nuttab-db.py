@@ -28,8 +28,8 @@ class NUTTAB:
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX amino_acid_food_ID_idx ON amino_acid (food_ID)'''
         create_table_stmt["amino_acid_meta"] = '''DROP TABLE IF EXISTS amino_acid_meta; CREATE TABLE amino_acid_meta
-                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po)
-                                CREATE INDEX amin_acid_meta_food_ID_idx on amin_acid_meta (food_ID)'''
+                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
+                                CREATE INDEX amino_acid_meta_food_ID_idx on amino_acid_meta (food_ID)'''
         create_table_stmt["indigenous_food"] = '''DROP TABLE IF EXISTS indigenous_food; CREATE TABLE indigenous_food
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX indigenous_food_food_ID_idx on indigenous_food (food_ID)'''
@@ -99,21 +99,29 @@ class NUTTAB:
         tablename - name of table containing the organised meta data
         '''
         wb = open_workbook(filename)
-        wb = wb.sheet_by_index(2)
+        ws = wb.sheet_by_index(1)
         header_row = 1
         for rowx in range(header_row, ws.nrows):
             row_dict = {}
             row_dict['food_group'] = ws.cell(rowx,1).value
-            row_dict['food_sub_group'] = ws.cell(rowx,2).value
+            row_dict['food_subgroup'] = ws.cell(rowx,2).value
             row_dict['derivation'] = ws.cell(rowx,3).value
             row_dict['food_id'] = ws.cell(rowx,4).value
-            row_dict['short_descr'] = ws.cell(rowx,5).value
-            row_dict['sci_name'] = ws.cell(rowx,4).value
-            row_dict['long_descr'] = ws.cell(rowx,4).value
-            row_dict['NF'] = ws.cell(rowx,4).value
-            row_dict['inedible_portion'] = ws.cell(rowx,4).value
-            row_dict['edible_portion'] = ws.cell(rowx,4).value
-        # store into DB
+            row_dict['descr_short'] = ws.cell(rowx,5).value
+            row_dict['sci_name'] = ws.cell(rowx,6).value
+            row_dict['descr_long'] = ws.cell(rowx,8).value
+            row_dict['NF'] = ws.cell(rowx,9).value
+            row_dict['inedible_po'] = ws.cell(rowx,10).value
+            row_dict['edible_po'] = ws.cell(rowx,11).value
+            db_row = [row_dict['food_id'], row_dict['food_group'],
+                      row_dict['food_subgroup'], row_dict['derivation'],
+                      row_dict['descr_short'], row_dict['sci_name'],
+                      row_dict['descr_long'], row_dict['NF'],
+                      row_dict['inedible_po'], row_dict['edible_po'],
+                      ]
+            self.insert_row("amino_acid_meta", db_row)
+
+        self.database.commit()
     def build_table_xls(self, filename, table):
         '''
         Build table from xls file
@@ -139,3 +147,4 @@ if __name__ == '__main__':
     nuttab = NUTTAB(dbname)
     #nuttab.build_table_csv(nutrition_file, "nutrition")
     nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
+    nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
