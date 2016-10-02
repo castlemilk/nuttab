@@ -296,7 +296,33 @@ class NUTTAB:
         insert_params = "(" + ",".join(['?' for x in fields]) + ")"
         self.cursor.execute("insert into " + tablename + " values " +
                             insert_params, fields)
-
+    def convert_to_document(self):
+        '''
+        Converts the distributed data bases into a munged/aggregated flat document
+        which profiles each food item with base nutrition information and the
+        available meta data
+        '''
+        for food in self.database.execute('''SELECT * FROM nutrition,
+                                          vit_d,vit_d_meta,
+                                          amino_acid, amino_acid_meta WHERE
+                                          nutrition.food_ID = vit_d.food_ID
+                                          OR
+                                          vit_d.food_ID = vit_d_meta.food_ID
+                                          OR
+                                          nutrition.food_ID = amino_acid.food_ID
+                                          OR
+                                          amino_acid.food_ID = amino_acid_meta.food_ID
+                                          '''):
+            print food
+            break
+    def query_vit_d(self,food_id):
+        '''
+        get vit D info for given food id
+        '''
+    def query_amino_acid(self, food_id):
+        '''
+        get amino acid info for given food id
+        '''
 
 if __name__ == '__main__':
     dbname = "NUTTAB.db"
@@ -313,3 +339,4 @@ if __name__ == '__main__':
     nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
     nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
+    nuttab.convert_to_document()
