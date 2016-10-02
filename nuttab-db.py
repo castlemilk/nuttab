@@ -39,6 +39,9 @@ class NUTTAB:
         create_table_stmt["indigenous_food"] = '''DROP TABLE IF EXISTS indigenous_food; CREATE TABLE indigenous_food
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX indigenous_food_food_ID_idx on indigenous_food (food_ID)'''
+        create_table_stmt["indigenous_food_meta"] = '''DROP TABLE IF EXISTS indigenous_food_meta; CREATE TABLE indigenous_food_meta
+                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
+                                CREATE INDEX indigenous_food_meta_food_ID_idx on indigenous_food_meta (food_ID)'''
 
         self.cursor = self.database.cursor()
         self.cursor.executescript(create_table_stmt["nutrition"])
@@ -47,6 +50,7 @@ class NUTTAB:
         self.cursor.executescript(create_table_stmt["vit_d"])
         self.cursor.executescript(create_table_stmt["vit_d_meta"])
         self.cursor.executescript(create_table_stmt["indigenous_food"])
+        self.cursor.executescript(create_table_stmt["indigenous_food_meta"])
         self.database.commit()
     def build_table_csv(self, filename, tablename):
         '''
@@ -249,8 +253,35 @@ class NUTTAB:
                           info['units'], info['value']]
                 self.insert_row(tablename, db_row)
         self.database.commit()
-
-
+    def build_table_xls_indig_meta(self, filename, tablename):
+        '''
+        filename - name of file containing indigenous food meta data
+        tablename - name of table to store data in
+        '''
+        wb = open_workbook(filename)
+        ws = wb.sheet_by_index(1)
+        header_row = 1
+        for rowx in range(header_row, ws.nrows):
+            row_dict = {}
+            row_dict['food_group'] = ws.cell(rowx,1).value
+            row_dict['food_subgroup'] = ws.cell(rowx,2).value
+            row_dict['derivation'] = ws.cell(rowx,3).value
+            row_dict['food_id'] = ws.cell(rowx,4).value
+            row_dict['descr_short'] = ws.cell(rowx,5).value
+            row_dict['optional_name'] = ws.cell(rowx,6).value
+            row_dict['sci_name'] = ws.cell(rowx,7).value
+            row_dict['descr_long'] = ws.cell(rowx,8).value
+            row_dict['NF'] = ws.cell(rowx,10).value
+            row_dict['inedible_po'] = ws.cell(rowx,11).value
+            row_dict['edible_po'] = ws.cell(rowx,12).value
+            db_row = [row_dict['food_id'], row_dict['food_group'],
+                      row_dict['food_subgroup'], row_dict['derivation'],
+                      row_dict['descr_short'], row_dict['sci_name'],
+                      row_dict['descr_long'], row_dict['NF'],
+                      row_dict['inedible_po'], row_dict['edible_po'],
+                      ]
+            self.insert_row(tablename, db_row)
+        self.database.commit()
     def build_table_xls(self, filename, table):
         '''
         Build table from xls file
@@ -281,3 +312,4 @@ if __name__ == '__main__':
     nuttab.build_table_xls_vitd(vitd_file, "vit_d")
     nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
+    nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
