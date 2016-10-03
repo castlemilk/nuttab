@@ -302,28 +302,96 @@ class NUTTAB:
         which profiles each food item with base nutrition information and the
         available meta data
         '''
-        for food in self.database.execute('''SELECT * FROM nutrition,
-                                          vit_d,vit_d_meta,
-                                          amino_acid, amino_acid_meta WHERE
-                                          nutrition.food_ID = vit_d.food_ID
-                                          OR
-                                          vit_d.food_ID = vit_d_meta.food_ID
-                                          OR
-                                          nutrition.food_ID = amino_acid.food_ID
-                                          OR
-                                          amino_acid.food_ID = amino_acid_meta.food_ID
-                                          '''):
-            print food
+        document = {}
+        for food in self.database.execute('''SELECT DISTINCT food_ID FROM
+                                          nutrition'''):
+            food_id = food['food_ID']
+            document['nutrients'] = self.query_nutrients(food_id)
+            document['nutrients'] += self.query_amino_acid(food_id)
+            document['nutrients'] += self.query_vit_d(food_id)
+
             break
+    def query_nutrients(self, food_id):
+        '''
+        food_id - id of given food
+        '''
+        nutrients = []
+        for nutrient in self.database.execute('''SELECT * FROM nutrition WHERE
+                                              nutrition.food_id = ?''', [food_id]):
+            nutrient_filtered = {'nut_ID' : nutrient['nut_ID'],
+                                 'descr' : nutrient['descr'],
+                                 'scale' : nutrient['scale'],
+                                 'value' : nutrient['value'],
+                                 }
+            nutrients.append(nutrient_filtered)
+
+        return nutrients
+
     def query_vit_d(self,food_id):
         '''
         get vit D info for given food id
         '''
+        return [{'nut_ID': nutrient['nut_ID'],
+                'descr' : nutrient['descr'],
+                'scale' : nutrient['scale'],
+                'value' : nutrient['value'],
+                }
+        for nutrient in self.database.execute('''SELECT * FROM vit_d WHERE
+                                                      vit_d.food_ID = ?''', [food_id])]
     def query_amino_acid(self, food_id):
         '''
         get amino acid info for given food id
         '''
-
+        return [{'nut_ID': nutrient['nut_ID'],
+                'descr' : nutrient['descr'],
+                'scale' : nutrient['scale'],
+                'value' : nutrient['value'],
+                }
+        for nutrient in self.database.execute('''SELECT * FROM amino_acid WHERE
+                                                      amino_acid.food_ID = ?''', [food_id])]
+    def query_vit_d_meta(self, food_id):
+        '''
+        food_id - id of food item to query vit d meta data
+        '''
+#        return [{'food_group': nutrient['food_group'],
+#                 'food_subgroup': nutrient['food_subgroup'],
+#                 'derivation': nutrient['derivation'],
+#                 'descr_short': nutrient['descr_short'],
+#                 'sci_name': nutrient['sci_name'],
+#                 'descr_long': nutrient['descr_long'],
+#                 'NF' : nutrient['NF'],
+#                 'inedible_po' : nutrient['inedible_po'],
+#                 'edible_po' : nutrient['edible_po'],
+#                 } for nutrient self.database.execute('''SELECT * FROM vit_d_meta WHERE
+#                                    vit_d_meta.food_ID = ?''', [food_id])]
+        result = self.database.execute('''SELECT * FROM vit_d_meta WHERE
+                        vit_d_meta.food_ID = ?''', [food_id]).fetchone()
+        return {'food_group': result['food_group'],
+                 'food_subgroup': result['food_subgroup'],
+                 'derivation': result['derivation'],
+                 'descr_short': result['descr_short'],
+                 'sci_name': result['sci_name'],
+                 'descr_long': result['descr_long'],
+                 'NF' : result['NF'],
+                 'inedible_po' : result['inedible_po'],
+                 'edible_po' : result['edible_po'],
+                }
+    def query_amino_acid_meta(self, food_id):
+        '''
+        food_id - id of food item to query vit d meta data
+        '''
+        result = self.database.execute('''SELECT * FROM amino_acid_meta WHERE
+                        amino_acid_meta.food_ID = ?''', [food_id]).fetchone()
+        return {'food_group': result['food_group'],
+                 'food_subgroup': result['food_subgroup'],
+                 'derivation': result['derivation'],
+                 'descr_short': result['descr_short'],
+                 'sci_name': result['sci_name'],
+                 'descr_long': result['descr_long'],
+                 'NF' : result['NF'],
+                 'inedible_po' : result['inedible_po'],
+                 'edible_po' : result['edible_po'],
+                }
 if __name__ == '__main__':
     dbname = "NUTTAB.db"
     nutrition_file = os.path.join(
@@ -332,11 +400,16 @@ if __name__ == '__main__':
     vitd_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Vitamin D File fixes.xls')
     indig_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Indigenous Food updated, fixes hidden.xls')
     nuttab = NUTTAB(dbname)
-    #nuttab.build_table_csv(nutrition_file, "nutrition")
+    nuttab.build_table_csv(nutrition_file, "nutrition")
     nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
     nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
     nuttab.build_table_xls_vitd(vitd_file, "vit_d")
     nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
     nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
-    nuttab.convert_to_document()
+    #nuttab.convert_to_document()
+    #print nuttab.query_vit_d('05A10571')
+    #print nuttab.query_vit_d_meta('05A10571')
+    #print nuttab.query_amino_acid('13A11649')
+    #print nuttab.query_amino_acid_meta('13A11649')
+    print nuttab.query_nutrients('13A1158123')
