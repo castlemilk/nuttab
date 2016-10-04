@@ -399,22 +399,37 @@ class NUTTAB:
         for food in tqdm(self.database.execute('''SELECT DISTINCT food_ID FROM
                                           nutrition''')):
             food_id = food['food_ID']
-            document['nutrients'] = self.query_nutrients(food_id)
-            document['nutrients'] += self.query_amino_acid(food_id)
-            document['nutrients'] += self.query_vit_d(food_id)
-            document['nutrients'] += self.query_trans_fat(food_id)
+            document[food_id] = {}
+            document[food_id]['nutrients'] = self.query_nutrients(food_id)
+            document[food_id]['nutrients'] += self.query_amino_acid(food_id)
+            document[food_id]['nutrients'] += self.query_vit_d(food_id)
+            document[food_id]['nutrients'] += self.query_trans_fat(food_id)
+            food_meta = self.query_food_meta(food_id)
             amino_meta = self.query_amino_acid_meta(food_id)
             vit_d_meta = self.query_vit_d_meta(food_id)
             trans_fat_meta = self.query_trans_fat_meta(food_id)
             # data is provided in the general meta file
+            if food_meta:
+                meta = food_meta
             if amino_meta:
-                document['meta'] = amino_meta
+                meta = amino_meta
             elif vit_d_meta:
-                document['meta'] = vit_d_meta
+                meta = vit_d_meta
             elif trans_fat_meta:
-                document['meta'] = trans_fat_meta
-            else:
-                pass
+                meta = trans_fat_meta
+            document[food_id]['meta'] = {
+                'NF': meta['NF'],
+                'FF': meta['FF'] if meta['FF'] else None,
+                'edible_po': meta['edible_po'],
+                'inedible_po' : meta['inedible_po'],
+            }
+            document[food_id]['name'] = {'name': meta['name'],
+                                'sci_name' : meta['sci_name'],
+                                'decr_long' : meta['descr_long'],
+                                }
+            document[food_id]['group'] = {'group': meta['food_group'],
+                                 'sub_group' : meta['food_subgroup'],
+                                 }
             #print json.dumps(document)
     def query_nutrients(self, food_id):
         '''
@@ -431,6 +446,26 @@ class NUTTAB:
             nutrients.append(nutrient_filtered)
 
         return nutrients
+    def query_food_meta(self, food_id):
+        '''
+        food_id - id of food item to query food meta data
+        '''
+        result = self.database.execute('''SELECT * FROM food_meta WHERE
+                        food_meta.food_ID = ?''', [food_id]).fetchone()
+        if result:
+            return {'food_group': result['food_group'],
+                 'food_subgroup': result['food_subgroup'],
+                 'derivation': result['derivation'],
+                 'descr_short': result['name'],
+                 'sci_name': result['sci_name'],
+                 'descr_long': result['descr'],
+                 'NF' : result['NF'],
+                 'FF' : result['FF'],
+                 'inedible_po' : result['inedible_po'],
+                 'edible_po' : result['edible_po'],
+                }
+        else:
+            return None
     def query_vit_d(self,food_id):
         '''
         get vit D info for given food id
