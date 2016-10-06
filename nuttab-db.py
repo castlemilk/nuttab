@@ -4,6 +4,8 @@ import json
 from tqdm import tqdm
 from nuttab_to_norm import mapping
 import sqlite3
+import time
+import firebase
 # TODO:
 # 1. DONE create field mapping for NUTTTAB to USDA DB schemes
 # 2. DOING parse NUTTAB Data and formatting into JSON for upload
@@ -37,19 +39,19 @@ class NUTTAB:
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX vit_d_food_ID_idx ON vit_d (food_ID)'''
         create_table_stmt["vit_d_meta"] = '''DROP TABLE IF EXISTS vit_d_meta; CREATE TABLE vit_d_meta
-                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
+                                (food_ID text, food_group, food_subgroup, derivation, name, sci_name, descr_long, NF, inedible_po, edible_po);
                                 CREATE INDEX vit_d_meta_food_ID_idx on vit_d_meta (food_ID)'''
         create_table_stmt["trans_fat"] = '''DROP TABLE IF EXISTS trans_fat; CREATE TABLE trans_fat
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX trans_fat_food_ID_idx ON trans_fat (food_ID)'''
         create_table_stmt["trans_fat_meta"] = '''DROP TABLE IF EXISTS trans_fat_meta; CREATE TABLE trans_fat_meta
-                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
+                                (food_ID text, food_group, food_subgroup, derivation, name, sci_name, descr_long, NF, inedible_po, edible_po);
                                 CREATE INDEX trans_fat_meta_food_ID_idx on trans_fat_meta (food_ID)'''
         create_table_stmt["indigenous_food"] = '''DROP TABLE IF EXISTS indigenous_food; CREATE TABLE indigenous_food
                                 (food_ID text, nut_ID, descr, scale, value);
                                 CREATE INDEX indigenous_food_food_ID_idx on indigenous_food (food_ID)'''
         create_table_stmt["indigenous_food_meta"] = '''DROP TABLE IF EXISTS indigenous_food_meta; CREATE TABLE indigenous_food_meta
-                                (food_ID text, food_group, food_subgroup, derivation, descr_short, sci_name, descr_long, NF, inedible_po, edible_po);
+                                (food_ID text, food_group, food_subgroup, derivation, name, sci_name, descr_long, NF, inedible_po, edible_po);
                                 CREATE INDEX indigenous_food_meta_food_ID_idx on indigenous_food_meta (food_ID)'''
 
         self.cursor = self.database.cursor()
@@ -76,6 +78,7 @@ class NUTTAB:
                 fields = [unicode(field.strip().strip('"'), "cp1252") for field in line.split('\t')]
                 # print fields
                 fields[1] = mapping[fields[1]]
+                fields[2] = fields[2].split(' (')[0]
                 # print fields
                 self.insert_row(tablename, fields)
         self.database.commit()
@@ -389,13 +392,15 @@ class NUTTAB:
         insert_params = "(" + ",".join(['?' for x in fields]) + ")"
         self.cursor.execute("insert into " + tablename + " values " +
                             insert_params, fields)
-    def convert_to_document(self):
+    def convert_to_document(self, destination=None):
         '''
         Converts the distributed data bases into a munged/aggregated flat document
         which profiles each food item with base nutrition information and the
         available meta data
         '''
         document = {}
+        if destination:
+            fp = open(destination, 'w')
         for food in tqdm(self.database.execute('''SELECT DISTINCT food_ID FROM
                                           nutrition''')):
             food_id = food['food_ID']
@@ -419,7 +424,7 @@ class NUTTAB:
                 meta = trans_fat_meta
             document[food_id]['meta'] = {
                 'NF': meta['NF'],
-                'FF': meta['FF'] if meta['FF'] else None,
+                'FF': meta['FF'] if meta.has_key('FF') else None,
                 'edible_po': meta['edible_po'],
                 'inedible_po' : meta['inedible_po'],
             }
@@ -430,21 +435,39 @@ class NUTTAB:
             document[food_id]['group'] = {'group': meta['food_group'],
                                  'sub_group' : meta['food_subgroup'],
                                  }
-            #print json.dumps(document)
+            break
+        if not destination:
+            print json.dumps(document)
+        else:
+            json.dump(document, fp)
+
+        fp.close()
+    def firebase_upload(self, url_endpoint, document):
+        '''
+        url_endpoint - destination to store document data
+        document - local file location of document
+        '''
+        start_time = time.time()
+        client = firebase.FirebaseApplication(url_endpoint, None)
+        with open(os.path.join(os.getcwd(),document)) as f:
+            db_dict = json.load(f)
+            print "pushing large dict.."
+            result = client.put('v1/','NUTTAB_DB',
+                                  db_dict, params={'print':'silent'})
+        print result
+        print("--- request completed in %s seconds ---" % (time.time() - start_time))
     def query_nutrients(self, food_id):
         '''
         food_id - id of given food
         '''
-        nutrients = []
+        nutrients = {}
         for nutrient in self.database.execute('''SELECT * FROM nutrition WHERE
                                               nutrition.food_id = ?''', [food_id]):
-            nutrient_filtered = {'nut_ID' : nutrient['nut_ID'],
-                                 'descr' : nutrient['descr'],
-                                 'scale' : nutrient['scale'],
-                                 'value' : nutrient['value'],
+            nutrients[nutrient['nut_ID']] = {
+                        'descr' : nutrient['descr'],
+                        'units' : nutrient['scale'],
+                        'value' : nutrient['value'],
                                  }
-            nutrients.append(nutrient_filtered)
-
         return nutrients
     def query_food_meta(self, food_id):
         '''
@@ -456,7 +479,7 @@ class NUTTAB:
             return {'food_group': result['food_group'],
                  'food_subgroup': result['food_subgroup'],
                  'derivation': result['derivation'],
-                 'descr_short': result['name'],
+                 'name': result['name'],
                  'sci_name': result['sci_name'],
                  'descr_long': result['descr'],
                  'NF' : result['NF'],
@@ -470,13 +493,15 @@ class NUTTAB:
         '''
         get vit D info for given food id
         '''
-        return [{'nut_ID': nutrient['nut_ID'],
-                'descr' : nutrient['descr'],
-                'scale' : nutrient['scale'],
-                'value' : nutrient['value'],
-                }
+        vit_d = {}
         for nutrient in self.database.execute('''SELECT * FROM vit_d WHERE
-                                                      vit_d.food_ID = ?''', [food_id])]
+                                              vit_d.food_ID = ?''', [food_id]):
+                vit_d[nutrient['nut_ID']] = {
+                    'descr' : nutrient['descr'],
+                    'scale' : nutrient['scale'],
+                    'value' : nutrient['value'],
+                }
+        return vit_d
     def query_trans_fat(self,food_id):
         '''
         get trans fat info for given transaturated fat
@@ -498,7 +523,7 @@ class NUTTAB:
             return {'food_group': result['food_group'],
                  'food_subgroup': result['food_subgroup'],
                  'derivation': result['derivation'],
-                 'descr_short': result['descr_short'],
+                 'name': result['name'],
                  'sci_name': result['sci_name'],
                  'descr_long': result['descr_long'],
                  'NF' : result['NF'],
@@ -528,7 +553,7 @@ class NUTTAB:
             return {'food_group': result['food_group'],
                  'food_subgroup': result['food_subgroup'],
                  'derivation': result['derivation'],
-                 'descr_short': result['descr_short'],
+                 'name': result['name'],
                  'sci_name': result['sci_name'],
                  'descr_long': result['descr_long'],
                  'NF' : result['NF'],
@@ -547,7 +572,7 @@ class NUTTAB:
             return {'food_group': result['food_group'],
                  'food_subgroup': result['food_subgroup'],
                  'derivation': result['derivation'],
-                 'descr_short': result['descr_short'],
+                 'name': result['name'],
                  'sci_name': result['sci_name'],
                  'descr_long': result['descr_long'],
                  'NF' : result['NF'],
@@ -565,6 +590,8 @@ if __name__ == '__main__':
     transfat_file = os.path.join(os.getcwd(), 'Trans Fatty acids-NUTTAB 20101.xls')
     indig_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Indigenous Food updated, fixes hidden.xls')
     food_meta_file = os.path.join(os.getcwd(), 'NUTTAB2010FoodFile.tab')
+    food_document = 'food_document.json'
+    firebase_url = 'https://nutritiondb-3314c.firebaseio.com'
     nuttab = NUTTAB(dbname)
     nuttab.build_table_tab(food_meta_file, "food_meta")
     nuttab.build_table_csv(nutrition_file, "nutrition")
@@ -576,7 +603,8 @@ if __name__ == '__main__':
     nuttab.build_table_xls_trans_fat_meta(transfat_file, "trans_fat_meta")
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
     nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
-    nuttab.convert_to_document()
+    nuttab.convert_to_document(food_document)
+    nuttab.firebase_upload(firebase_url,food_document)
     #print nuttab.query_vit_d('05A10571')
     #print nuttab.query_vit_d_meta('05A10571')
     #print nuttab.query_amino_acid('13A11649')
