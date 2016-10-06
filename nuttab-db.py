@@ -406,9 +406,9 @@ class NUTTAB:
             food_id = food['food_ID']
             document[food_id] = {}
             document[food_id]['nutrients'] = self.query_nutrients(food_id)
-            document[food_id]['nutrients'] += self.query_amino_acid(food_id)
-            document[food_id]['nutrients'] += self.query_vit_d(food_id)
-            document[food_id]['nutrients'] += self.query_trans_fat(food_id)
+            #document[food_id]['nutrients'] += self.query_amino_acid(food_id)
+            #document[food_id]['nutrients'] += self.query_vit_d(food_id)
+            #document[food_id]['nutrients'] += self.query_trans_fat(food_id)
             food_meta = self.query_food_meta(food_id)
             amino_meta = self.query_amino_acid_meta(food_id)
             vit_d_meta = self.query_vit_d_meta(food_id)
@@ -435,7 +435,6 @@ class NUTTAB:
             document[food_id]['group'] = {'group': meta['food_group'],
                                  'sub_group' : meta['food_subgroup'],
                                  }
-            break
         if not destination:
             print json.dumps(document)
         else:
@@ -459,15 +458,30 @@ class NUTTAB:
     def query_nutrients(self, food_id):
         '''
         food_id - id of given food
+        TODO: clean up to merge into one db execution
         '''
         nutrients = {}
         for nutrient in self.database.execute('''SELECT * FROM nutrition WHERE
                                               nutrition.food_id = ?''', [food_id]):
             nutrients[nutrient['nut_ID']] = {
-                        'descr' : nutrient['descr'],
+                        'name' : nutrient['descr'],
                         'units' : nutrient['scale'],
                         'value' : nutrient['value'],
                                  }
+        for nutrient in self.database.execute('''SELECT * FROM trans_fat WHERE
+                                        trans_fat.food_ID = ?''', [food_id]):
+            nutrients[nutrient['nut_ID']] = {
+                'name' : nutrient['descr'],
+                'scale' : nutrient['scale'],
+                'value' : nutrient['value'],
+            }
+        for nutrient in self.database.execute('''SELECT * FROM amino_acid WHERE
+                                        amino_acid.food_ID = ?''', [food_id]):
+            nutrients[nutrient['nut_ID']] = {
+                'name' : nutrient['descr'],
+                'scale' : nutrient['scale'],
+                'value' : nutrient['value'],
+            }
         return nutrients
     def query_food_meta(self, food_id):
         '''
@@ -506,13 +520,15 @@ class NUTTAB:
         '''
         get trans fat info for given transaturated fat
         '''
-        return [{'nut_ID': nutrient['nut_ID'],
+        trans_fat = {}
+        for nutrient in self.database.execute('''SELECT * FROM trans_fat WHERE
+                                              trans_fat.food_ID = ?''', [food_id]):
+            trans_fat[nutrient['nut_ID']] = {
                 'descr' : nutrient['descr'],
                 'scale' : nutrient['scale'],
                 'value' : nutrient['value'],
-                }
-        for nutrient in self.database.execute('''SELECT * FROM trans_fat WHERE
-                                                      trans_fat.food_ID = ?''', [food_id])]
+            }
+        return trans_fat
     def query_trans_fat_meta(self, food_id):
         '''
         food_id - id of food item to query transaturated fat meta data
