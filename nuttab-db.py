@@ -441,6 +441,10 @@ class NUTTAB:
             json.dump(document, fp)
 
         fp.close()
+    def convert_food_list(self):
+        '''
+        Generate food item list which maps the food ID code to the food name
+        '''
     def firebase_upload(self, url_endpoint, document):
         '''
         url_endpoint - destination to store document data
