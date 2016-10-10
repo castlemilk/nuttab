@@ -444,18 +444,52 @@ class NUTTAB:
     def convert_food_list(self):
         '''
         Generate food item list which maps the food ID code to the food name
+        List is a dictionary mapping of as follows:
+            {"A1023AD3452DS" : 'Chocolate bar, Snickers',
+             "B25GHF342BDS" : 'smoked bacon, fried',
+              ...
+              }
         '''
-    def firebase_upload(self, url_endpoint, document):
+        nuttab_food_list = {}
+        for food in tqdm(self.database.execute('''SELECT DISTINCT food_ID FROM
+                                          nutrition''')):
+            food_id = food['food_ID']
+            food_meta = self.query_food_meta(food_id)
+            nuttab_food_list[food_id] = {
+                    'name' : food_meta['name'],
+                    'group' : food_meta['food_group'],
+                    'source' : 'NUTTAB',
+                                         }
+            nuttab_food_list[food_id]['source'] = 'NUTTAB'
+        with open('nuttab_food_list.json', 'w') as fp:
+            json.dump(nuttab_food_list, fp)
+    def merge_lists(self):
+        '''
+        Generate a combined list for USDA and NUTTAB, requires that both
+        json dictionaries are generated and available when run with the
+        expected names:
+            USDA_DB - usda_food_list.json
+            NUTTAB_DB - nuttab_food_list.json
+        '''
+        with open('usda_food_list.json', 'r') as usda_fp:
+            usda_food_list = json.load(usda_fp)
+        with open('nuttab_food_list.json', 'r') as nuttab_fp:
+            nuttab_food_list = json.load(nuttab_fp)
+        merged_list = usda_food_list.copy()
+        merged_list.update(nuttab_food_list)
+        with open('food_list_total.json','w') as food_fp:
+            json.dump(merged_list, food_fp)
+    def firebase_upload(self, dns, url, name, document):
         '''
         url_endpoint - destination to store document data
         document - local file location of document
         '''
         start_time = time.time()
-        client = firebase.FirebaseApplication(url_endpoint, None)
+        client = firebase.FirebaseApplication(dns, None)
         with open(os.path.join(os.getcwd(),document)) as f:
             db_dict = json.load(f)
             print "pushing large dict.."
-            result = client.put('v1/','NUTTAB_DB',
+            result = client.put(url, 'items',
                                   db_dict, params={'print':'silent'})
         print result
         print("--- request completed in %s seconds ---" % (time.time() - start_time))
@@ -624,7 +658,10 @@ if __name__ == '__main__':
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
     nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
     nuttab.convert_to_document(food_document)
-    nuttab.firebase_upload(firebase_url,food_document)
+    nuttab.convert_food_list()
+    nuttab.merge_lists()
+    nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
+    #nuttab.firebase_upload(firebase_url,food_document)
     #print nuttab.query_vit_d('05A10571')
     #print nuttab.query_vit_d_meta('05A10571')
     #print nuttab.query_amino_acid('13A11649')
