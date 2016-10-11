@@ -484,15 +484,32 @@ class NUTTAB:
         url_endpoint - destination to store document data
         document - local file location of document
         '''
-        start_time = time.time()
         client = firebase.FirebaseApplication(dns, None)
-        with open(os.path.join(os.getcwd(),document)) as f:
-            db_dict = json.load(f)
-            print "pushing large dict.."
-            result = client.put(url, 'items',
-                                  db_dict, params={'print':'silent'})
-        print result
-        print("--- request completed in %s seconds ---" % (time.time() - start_time))
+        error_count = 0
+        while True:
+            try:
+                if isinstance(document, str):
+                    with open(os.path.join(os.getcwd(),document),'r') as f:
+                        db_dict = json.load(f)
+                        print "pushing large dict.."
+                        result = client.put(url, name,
+                                      db_dict, params={'print':'silent'})
+                        print result
+                elif isinstance(document, dict):
+                    result = client.put(url, name,
+                                      document, params={'print':'silent'})
+            except Exception as e:
+                print e
+                if error_count > 20:
+                    break
+                else:
+                    error_count +=1
+                    continue
+            else:
+                error_count=0
+                break
+        #print("--- request completed in %s seconds ---" % (time.time() - start_time))
+        #return result
     def query_nutrients(self, food_id):
         '''
         food_id - id of given food
@@ -644,7 +661,7 @@ if __name__ == '__main__':
     transfat_file = os.path.join(os.getcwd(), 'Trans Fatty acids-NUTTAB 20101.xls')
     indig_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Indigenous Food updated, fixes hidden.xls')
     food_meta_file = os.path.join(os.getcwd(), 'NUTTAB2010FoodFile.tab')
-    food_document = 'food_document.json'
+    food_document = 'nuttab_document.json'
     firebase_url = 'https://nutritiondb-3314c.firebaseio.com'
     nuttab = NUTTAB(dbname)
     nuttab.build_table_tab(food_meta_file, "food_meta")
@@ -658,10 +675,22 @@ if __name__ == '__main__':
     nuttab.build_table_xls_indig(indig_file, "indigenous_food")
     nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
     nuttab.convert_to_document(food_document)
-    nuttab.convert_food_list()
-    nuttab.merge_lists()
-    nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
-    #nuttab.firebase_upload(firebase_url,food_document)
+    #nuttab.convert_food_list()
+    #nuttab.merge_lists()
+    #nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
+    #while True:
+        #try:
+    with open(food_document, 'r') as fp:
+        food_dict = json.load(fp)
+        for food, packet in tqdm(food_dict.iteritems()):
+            nuttab.firebase_upload(firebase_url,firebase_url+'/v2/NUTTAB/',food, packet)
+    #nuttab.firebase_upload(firebase_url,firebase_url+'/v2/','NUTTAB', food_document)
+        #    print done
+        #except:
+        #    print "failed attempt"
+        #    continue
+        #else:
+            #break
     #print nuttab.query_vit_d('05A10571')
     #print nuttab.query_vit_d_meta('05A10571')
     #print nuttab.query_amino_acid('13A11649')
