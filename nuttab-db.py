@@ -661,29 +661,58 @@ if __name__ == '__main__':
     transfat_file = os.path.join(os.getcwd(), 'Trans Fatty acids-NUTTAB 20101.xls')
     indig_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Indigenous Food updated, fixes hidden.xls')
     food_meta_file = os.path.join(os.getcwd(), 'NUTTAB2010FoodFile.tab')
-    food_document = 'nuttab_document.json'
+    food_document = 'usda_document.json'
     firebase_url = 'https://nutritiondb-3314c.firebaseio.com'
     nuttab = NUTTAB(dbname)
-    nuttab.build_table_tab(food_meta_file, "food_meta")
-    nuttab.build_table_csv(nutrition_file, "nutrition")
-    nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
-    nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
-    nuttab.build_table_xls_vitd(vitd_file, "vit_d")
-    nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
-    nuttab.build_table_xls_trans_fat(transfat_file, "trans_fat")
-    nuttab.build_table_xls_trans_fat_meta(transfat_file, "trans_fat_meta")
-    nuttab.build_table_xls_indig(indig_file, "indigenous_food")
-    nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
-    nuttab.convert_to_document(food_document)
+    #nuttab.build_table_tab(food_meta_file, "food_meta")
+    #nuttab.build_table_csv(nutrition_file, "nutrition")
+    #nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
+    #nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
+    #nuttab.build_table_xls_vitd(vitd_file, "vit_d")
+    #nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
+    #nuttab.build_table_xls_trans_fat(transfat_file, "trans_fat")
+    #nuttab.build_table_xls_trans_fat_meta(transfat_file, "trans_fat_meta")
+    #nuttab.build_table_xls_indig(indig_file, "indigenous_food")
+    #nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
+    #nuttab.convert_to_document(food_document)
     #nuttab.convert_food_list()
     #nuttab.merge_lists()
     #nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
     #while True:
-        #try:
+    def linch_dict_divider(raw_dict, num):
+        list_result = []
+        len_raw_dict = len(raw_dict)
+        if len_raw_dict > num:
+            base_num = len_raw_dict / num
+            addr_num = len_raw_dict % num
+            for i in range(num):
+                this_dict = dict()
+                keys = list()
+                if addr_num > 0:
+                    keys = raw_dict.keys()[:base_num + 1]
+                    addr_num -= 1
+                else:
+                    keys = raw_dict.keys()[:base_num]
+                for key in keys:
+                    this_dict[key] = raw_dict[key]
+                    del raw_dict[key]
+                list_result.append(this_dict)
+
+        else:
+            for d in raw_dict:
+                this_dict = dict()
+                this_dict[d] = raw_dict[d]
+                list_result.append(this_dict)
+
+        return list_result
     with open(food_document, 'r') as fp:
         food_dict = json.load(fp)
+        #bulks = linch_dict_divider(food_dict, 1000)
+        #print bulks
+        #for bulk in bulks:
+        #    nuttab.firebase_upload(firebase_url,firebase_url+'/v2/','USDA', bulk)
         for food, packet in tqdm(food_dict.iteritems()):
-            nuttab.firebase_upload(firebase_url,firebase_url+'/v2/NUTTAB/',food, packet)
+            nuttab.firebase_upload(firebase_url,firebase_url+'/v2/USDA/',food, packet)
     #nuttab.firebase_upload(firebase_url,firebase_url+'/v2/','NUTTAB', food_document)
         #    print done
         #except:
