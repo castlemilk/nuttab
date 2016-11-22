@@ -510,6 +510,10 @@ class NUTTAB:
                 break
         #print("--- request completed in %s seconds ---" % (time.time() - start_time))
         #return result
+    def firebase_bulk_upload(self, dns, url, name, document):
+        '''
+        Does a multi-process bulk upload of a document with worker processes
+        '''
     def query_nutrients(self, food_id):
         '''
         food_id - id of given food
@@ -678,50 +682,7 @@ if __name__ == '__main__':
     #nuttab.convert_food_list()
     #nuttab.merge_lists()
     #nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
-    #while True:
-    def linch_dict_divider(raw_dict, num):
-        list_result = []
-        len_raw_dict = len(raw_dict)
-        if len_raw_dict > num:
-            base_num = len_raw_dict / num
-            addr_num = len_raw_dict % num
-            for i in range(num):
-                this_dict = dict()
-                keys = list()
-                if addr_num > 0:
-                    keys = raw_dict.keys()[:base_num + 1]
-                    addr_num -= 1
-                else:
-                    keys = raw_dict.keys()[:base_num]
-                for key in keys:
-                    this_dict[key] = raw_dict[key]
-                    del raw_dict[key]
-                list_result.append(this_dict)
-
-        else:
-            for d in raw_dict:
-                this_dict = dict()
-                this_dict[d] = raw_dict[d]
-                list_result.append(this_dict)
-
-        return list_result
     with open(food_document, 'r') as fp:
         food_dict = json.load(fp)
-        #bulks = linch_dict_divider(food_dict, 1000)
-        #print bulks
-        #for bulk in bulks:
-        #    nuttab.firebase_upload(firebase_url,firebase_url+'/v2/','USDA', bulk)
         for food, packet in tqdm(food_dict.iteritems()):
             nuttab.firebase_upload(firebase_url,firebase_url+'/v2/USDA/',food, packet)
-    #nuttab.firebase_upload(firebase_url,firebase_url+'/v2/','NUTTAB', food_document)
-        #    print done
-        #except:
-        #    print "failed attempt"
-        #    continue
-        #else:
-            #break
-    #print nuttab.query_vit_d('05A10571')
-    #print nuttab.query_vit_d_meta('05A10571')
-    #print nuttab.query_amino_acid('13A11649')
-    #print nuttab.query_amino_acid_meta('13A11649')
-    #print nuttab.query_nutrients('13A1158123')
