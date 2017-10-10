@@ -429,11 +429,12 @@ class NUTTAB:
                 'inedible_po' : meta['inedible_po'],
             }
             document[food_id]['name'] = {'name': meta['name'],
-                                'sci_name' : meta['sci_name'],
-                                'decr_long' : meta['descr_long'],
+                                'sci' : meta['sci_name'],
+                                'long' : meta['descr_long'],
                                 }
-            document[food_id]['group'] = {'group': meta['food_group'],
-                                 'sub_group' : meta['food_subgroup'],
+            document[food_id]['group'] = {
+                                'group': meta['food_group'],
+                                'sub_group' : meta['food_subgroup'],
                                  }
         if not destination:
             print json.dumps(document)
@@ -519,28 +520,36 @@ class NUTTAB:
         food_id - id of given food
         TODO: clean up to merge into one db execution
         '''
+        from decimal import Decimal
         nutrients = {}
         for nutrient in self.database.execute('''SELECT * FROM nutrition WHERE
                                               nutrition.food_id = ?''', [food_id]):
             nutrients[nutrient['nut_ID']] = {
-                        'name' : nutrient['descr'],
-                        'units' : nutrient['scale'],
-                        'value' : nutrient['value'],
-                                 }
+            'name' : nutrient['descr'],
+            'units' : nutrient['scale'],
+            'value' : float(nutrient['value'] if nutrient['value'] else "0"),
+                                            }
         for nutrient in self.database.execute('''SELECT * FROM trans_fat WHERE
                                         trans_fat.food_ID = ?''', [food_id]):
             nutrients[nutrient['nut_ID']] = {
-                'name' : nutrient['descr'],
-                'scale' : nutrient['scale'],
-                'value' : nutrient['value'],
-            }
+            'name' : nutrient['descr'],
+            'units' : nutrient['scale'],
+            'value' : float(nutrient['value'] if nutrient['value'] else "0"),
+                                            }
         for nutrient in self.database.execute('''SELECT * FROM amino_acid WHERE
                                         amino_acid.food_ID = ?''', [food_id]):
             nutrients[nutrient['nut_ID']] = {
-                'name' : nutrient['descr'],
-                'scale' : nutrient['scale'],
-                'value' : nutrient['value'],
-            }
+            'name' : nutrient['descr'],
+            'units' : nutrient['scale'],
+            'value' : float(nutrient['value'] if nutrient['value'] else "0"),
+                                            }
+        for nutrient in self.database.execute('''SELECT * FROM vit_d WHERE
+                                        vit_d.food_ID = ?''', [food_id]):
+            nutrients[nutrient['nut_ID']] = {
+            'name' : nutrient['descr'],
+            'units' : nutrient['scale'],
+            'value' : float(nutrient['value'] if nutrient['value'] else "0"),
+                                            }
         return nutrients
     def query_food_meta(self, food_id):
         '''
@@ -570,8 +579,8 @@ class NUTTAB:
         for nutrient in self.database.execute('''SELECT * FROM vit_d WHERE
                                               vit_d.food_ID = ?''', [food_id]):
                 vit_d[nutrient['nut_ID']] = {
-                    'descr' : nutrient['descr'],
-                    'scale' : nutrient['scale'],
+                    'name' : nutrient['descr'],
+                    'units' : nutrient['scale'],
                     'value' : nutrient['value'],
                 }
         return vit_d
@@ -583,8 +592,8 @@ class NUTTAB:
         for nutrient in self.database.execute('''SELECT * FROM trans_fat WHERE
                                               trans_fat.food_ID = ?''', [food_id]):
             trans_fat[nutrient['nut_ID']] = {
-                'descr' : nutrient['descr'],
-                'scale' : nutrient['scale'],
+                'name' : nutrient['descr'],
+                'units' : nutrient['scale'],
                 'value' : nutrient['value'],
             }
         return trans_fat
@@ -612,8 +621,8 @@ class NUTTAB:
         get amino acid info for given food id
         '''
         return [{'nut_ID': nutrient['nut_ID'],
-                'descr' : nutrient['descr'],
-                'scale' : nutrient['scale'],
+                'name' : nutrient['descr'],
+                'units' : nutrient['scale'],
                 'value' : nutrient['value'],
                 }
         for nutrient in self.database.execute('''SELECT * FROM amino_acid WHERE
@@ -665,24 +674,17 @@ if __name__ == '__main__':
     transfat_file = os.path.join(os.getcwd(), 'Trans Fatty acids-NUTTAB 20101.xls')
     indig_file = os.path.join(os.getcwd(), 'NUTTAB 2010 - Indigenous Food updated, fixes hidden.xls')
     food_meta_file = os.path.join(os.getcwd(), 'NUTTAB2010FoodFile.tab')
-    food_document = 'usda_document.json'
+    food_document = 'nuttab_documentv3.json'
     firebase_url = 'https://nutritiondb-3314c.firebaseio.com'
     nuttab = NUTTAB(dbname)
-    #nuttab.build_table_tab(food_meta_file, "food_meta")
-    #nuttab.build_table_csv(nutrition_file, "nutrition")
-    #nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
-    #nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
-    #nuttab.build_table_xls_vitd(vitd_file, "vit_d")
-    #nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
-    #nuttab.build_table_xls_trans_fat(transfat_file, "trans_fat")
-    #nuttab.build_table_xls_trans_fat_meta(transfat_file, "trans_fat_meta")
-    #nuttab.build_table_xls_indig(indig_file, "indigenous_food")
-    #nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
-    #nuttab.convert_to_document(food_document)
-    #nuttab.convert_food_list()
-    #nuttab.merge_lists()
-    #nuttab.firebase_upload(firebase_url, firebase_url+'/v2/','items', 'food_list_total.json')
-    with open(food_document, 'r') as fp:
-        food_dict = json.load(fp)
-        for food, packet in tqdm(food_dict.iteritems()):
-            nuttab.firebase_upload(firebase_url,firebase_url+'/v2/USDA/',food, packet)
+    nuttab.build_table_tab(food_meta_file, "food_meta")
+    nuttab.build_table_csv(nutrition_file, "nutrition")
+    nuttab.build_table_xls_amino_acid(amino_file, "amino_acid")
+    nuttab.build_table_xls_amino_acid_meta(amino_file, "amino_acid_meta")
+    nuttab.build_table_xls_vitd(vitd_file, "vit_d")
+    nuttab.build_table_xls_vitd_meta(vitd_file, "vit_d_meta")
+    nuttab.build_table_xls_trans_fat(transfat_file, "trans_fat")
+    nuttab.build_table_xls_trans_fat_meta(transfat_file, "trans_fat_meta")
+    nuttab.build_table_xls_indig(indig_file, "indigenous_food")
+    nuttab.build_table_xls_indig_meta(indig_file, "indigenous_food_meta")
+    nuttab.convert_to_document(food_document)

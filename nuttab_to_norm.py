@@ -2,7 +2,7 @@
 mapping = {
         'ENERGY-04DF' : 'ENERC1',
         'MOIS' : 'WATER',
-        'PROT' : 'PROT',
+        'PROT' : 'PROCNT',
         'NIT' : 'NT', # no nitrogen equivalent (nitrogen factor?)
         'FAT' : 'FAT',
         'ASH' : 'ASH',
